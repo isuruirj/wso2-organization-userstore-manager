@@ -271,21 +271,21 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
         }
     }
 
-    @Override
-    public List<String> doGetUserListFromPropertiesWithID(String property, String value, String profileName)
-            throws UserStoreException {
-
-        // Server startup calls this legacy API even before this user store manager is activated.
-        // Call super during such scenarios
-        // Child classes who override this method should duplicate the below logic
-        if (!OrganizationUserStoreDataHolder.getInstance().isActive()) {
-            return super.doGetUserListFromPropertiesWithID(property, value, profileName);
-        }
-        // Use the same API to access the LDAP even when the pagination parameters are not present in the request
-        Condition condition = new ExpressionCondition("EQ", property, value);
-        UniqueIDPaginatedSearchResult result = doGetUserListWithID(condition, profileName, -1, 1, null, null);
-        return result.getUsers().stream().map(user -> user.getUserID()).collect(Collectors.toList());
-    }
+//    @Override
+//    public List<String> doGetUserListFromPropertiesWithID(String property, String value, String profileName)
+//            throws UserStoreException {
+//
+//        // Server startup calls this legacy API even before this user store manager is activated.
+//        // Call super during such scenarios
+//        // Child classes who override this method should duplicate the below logic
+//        if (!OrganizationUserStoreDataHolder.getInstance().isActive()) {
+//            return super.doGetUserListFromPropertiesWithID(property, value, profileName);
+//        }
+//        // Use the same API to access the LDAP even when the pagination parameters are not present in the request
+//        Condition condition = new ExpressionCondition("EQ", property, value);
+//        UniqueIDPaginatedSearchResult result = doGetUserListWithID(condition, profileName, -1, 1, null, null);
+//        return result.getUsers().stream().map(user -> user.getUserID()).collect(Collectors.toList());
+//    }
 
     @Override
     protected String doGetUserIDFromUserNameWithID(String userName) throws UserStoreException {
@@ -771,7 +771,7 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
             for (String searchBase: searchBaseArray) {
                 do {
                     List<String> tempUserList = new ArrayList<>();
-                    log.error("*********** Stacktrace : ",  new Throwable());
+//                    log.error("*********** Stacktrace : ",  new Throwable());
 
                     log.info("***************getSearchScope : " + searchControls.getSearchScope());
                     log.info("***************getCountLimit : " + searchControls.getCountLimit());
