@@ -56,6 +56,7 @@ import org.wso2.carbon.user.core.util.UserCoreUtil;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -770,7 +771,25 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
             for (String searchBase: searchBaseArray) {
                 do {
                     List<String> tempUserList = new ArrayList<>();
-                    answer = ldapContext.search(escapeDNForSearch(searchBase), searchFilter, searchControls);
+                    log.error("*********** Stacktrace : ",  new Throwable());
+
+                    log.info("***************getSearchScope : " + searchControls.getSearchScope());
+                    log.info("***************getCountLimit : " + searchControls.getCountLimit());
+                    log.info("***************getDerefLinkFlag : " + searchControls.getDerefLinkFlag());
+                    log.info("***************getReturningAttributes : " + searchControls.getReturningAttributes());
+                    log.info("***************getReturningObjFlag : " + searchControls.getReturningObjFlag());
+                    log.info("***************getTimeLimit : " + searchControls.getTimeLimit());
+                    Name escapedSearchBase = escapeDNForSearch(searchBase);
+                    log.info("***************searchBase : " + searchBase);
+                    log.info("***************escapedSearchBase : " + escapedSearchBase);
+                    log.info("***************searchFilter : " + searchFilter);
+
+                    Hashtable<?, ?> env = ldapContext.getEnvironment();
+                    for (Map.Entry<?,?> entry : env.entrySet()) {
+                       log.info(entry.getKey() + " : " + entry.getValue());
+                    }
+
+                    answer = ldapContext.search(escapedSearchBase, searchFilter, searchControls);
                     if (answer.hasMore()) {
                         tempUserList = getUserListFromSearch(isGroupFiltering, returnedAttributes, answer,
                                 isSingleAttributeFilterOperation(expressionConditions));
