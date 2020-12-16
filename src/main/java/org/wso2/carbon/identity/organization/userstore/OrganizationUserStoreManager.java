@@ -137,6 +137,7 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
     protected UniqueIDPaginatedSearchResult doGetUserListWithID(Condition condition, String profileName, int limit,
             int offset, String sortBy, String sortOrder) throws UserStoreException {
 
+        log.info("***********Inside doGetUserListWithID() method");
         PaginatedSearchResult userNames = doGetUserList(condition, profileName, limit, offset, sortBy, sortOrder);
         UniqueIDPaginatedSearchResult userList = new UniqueIDPaginatedSearchResult();
         userList.setPaginatedSearchResult(userNames);
@@ -154,6 +155,7 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
     protected PaginatedSearchResult doGetUserList(Condition condition, String profileName, int limit, int offset,
             String sortBy, String sortOrder) throws UserStoreException {
 
+        log.info("***********Inside doGetUserList() method");
         PaginatedSearchResult result = new PaginatedSearchResult();
         // Since we support only 'AND' operation, can get expressions as a list.
         List<ExpressionCondition> expressionConditions = getExpressionConditions(condition);
@@ -274,6 +276,8 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
     @Override
     public List<String> doGetUserListFromPropertiesWithID(String property, String value, String profileName)
             throws UserStoreException {
+
+        log.info("***********Inside doGetUserListFromPropertiesWithID() method");
 
         // Server startup calls this legacy API even before this user store manager is activated.
         // Call super during such scenarios
@@ -729,6 +733,7 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
             List<ExpressionCondition> expressionConditions)
             throws UserStoreException {
 
+        log.info("***********Inside performLDAPSearch() method");
         byte[] cookie;
         int pageIndex = -1;
         boolean isGroupFiltering = ldapSearchSpecification.isGroupFiltering();
@@ -745,6 +750,7 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
             searchControls.setSearchScope(SearchControls.ONELEVEL_SCOPE);
             // Search in the organization's user search base (DN)
             searchBaseArray = new String[] { orgSearchBase };
+            log.info("*********** search base from request : " + Arrays.toString(searchBaseArray));
         } else {
             // admin users can do full tree search
             // Non-admin users can only search in allowed organizations
@@ -753,6 +759,8 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
                 searchFilter = getAuthorizedSearchFilter(searchFilter, orgIdAttribute);
             }
             // Use the default search base (Search will NOT be limited to one level)
+            log.info("***********ldapSearchSpecification.getSearchBases() : "
+                    + ldapSearchSpecification.getSearchBases());
             searchBaseArray = ldapSearchSpecification.getSearchBases().split("#");
         }
 
@@ -768,6 +776,7 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
                     pageSize));
         }
         try {
+            log.info("***********searchBaseArray" + Arrays.toString(searchBaseArray));
             for (String searchBase: searchBaseArray) {
                 do {
                     List<String> tempUserList = new ArrayList<>();
@@ -776,7 +785,8 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
                     log.info("***************getSearchScope : " + searchControls.getSearchScope());
                     log.info("***************getCountLimit : " + searchControls.getCountLimit());
                     log.info("***************getDerefLinkFlag : " + searchControls.getDerefLinkFlag());
-                    log.info("***************getReturningAttributes : " + searchControls.getReturningAttributes());
+                    log.info("***************getReturningAttributes : "
+                            + Arrays.toString(searchControls.getReturningAttributes()));
                     log.info("***************getReturningObjFlag : " + searchControls.getReturningObjFlag());
                     log.info("***************getTimeLimit : " + searchControls.getTimeLimit());
                     Name escapedSearchBase = escapeDNForSearch(searchBase);
