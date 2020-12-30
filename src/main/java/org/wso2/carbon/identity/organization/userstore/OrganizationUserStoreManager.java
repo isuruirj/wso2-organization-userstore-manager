@@ -138,7 +138,13 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
     protected UniqueIDPaginatedSearchResult doGetUserListWithID(Condition condition, String profileName, int limit,
             int offset, String sortBy, String sortOrder) throws UserStoreException {
 
+        log.info("VFUKCIAMVIRTUSSUB-82 : doGetUserListWithID() method");
+        log.info("VFUKCIAMVIRTUSSUB-82 : doGetUserListWithID() offset : " + offset + ", limit : " + limit);
         PaginatedSearchResult userNames = doGetUserList(condition, profileName, limit, offset, sortBy, sortOrder);
+        if (userNames.getUsers() != null) {
+            log.info("VFUKCIAMVIRTUSSUB-82 : doGetUserListWithID() userNames.getUsers().length : "
+                    + userNames.getUsers().length);
+        }
         UniqueIDPaginatedSearchResult userList = new UniqueIDPaginatedSearchResult();
         userList.setPaginatedSearchResult(userNames);
         userList.setSkippedUserCount(userNames.getSkippedUserCount());
@@ -148,6 +154,10 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
             users.add(user);
         }
         userList.setUsers(users);
+        if (userList.getUsers() != null) {
+            log.info("VFUKCIAMVIRTUSSUB-82 : doGetUserListWithID() userList.getUsers().size() : "
+                    + userList.getUsers().size());
+        }
         return userList;
     }
 
@@ -155,6 +165,7 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
     protected PaginatedSearchResult doGetUserList(Condition condition, String profileName, int limit, int offset,
             String sortBy, String sortOrder) throws UserStoreException {
 
+        log.info("VFUKCIAMVIRTUSSUB-82 : doGetUserList()");
         PaginatedSearchResult result = new PaginatedSearchResult();
         // Since we support only 'AND' operation, can get expressions as a list.
         List<ExpressionCondition> expressionConditions = getExpressionConditions(condition);
@@ -235,11 +246,14 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
                 expressionConditions);
         boolean isMemberShipPropertyFound = ldapSearchSpecification.isMemberShipPropertyFound();
         limit = getLimit(limit, isMemberShipPropertyFound);
+        log.info("VFUKCIAMVIRTUSSUB-82 : doGetUserList() limit : " + limit);
         offset = getOffset(offset);
+        log.info("VFUKCIAMVIRTUSSUB-82 : doGetUserList() offset : " + offset);
         if (limit == 0) {
             return result;
         }
         int pageSize = limit;
+        log.info("VFUKCIAMVIRTUSSUB-82 : doGetUserList() initial pageSize : " + pageSize);
         DirContext dirContext = this.connectionSource.getContext();
         LdapContext ldapContext = (LdapContext) dirContext;
         List<String> users;
@@ -258,6 +272,9 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
                 ldapUsers.add(UserCoreUtil.addDomainToName(ldapUser, getMyDomainName()));
             }
             result.setUsers(ldapUsers.toArray(new String[0]));
+            if (result.getUsers() != null) {
+                log.info("VFUKCIAMVIRTUSSUB-82 : doGetUserList() result.getUsers().length : " + result.getUsers().length);
+            }
             return result;
         } catch (NamingException e) {
             ErrorMessage errorMessage = ErrorMessage.ERROR_WHILE_PAGINATED_SEARCH;
@@ -741,6 +758,8 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
             List<ExpressionCondition> expressionConditions, boolean filterByOrgName)
             throws UserStoreException {
 
+        log.info("VFUKCIAMVIRTUSSUB-82 : performLDAPSearch()");
+        log.info("VFUKCIAMVIRTUSSUB-82 : performLDAPSearch() pageSize : " + pageSize + ", offset : " + offset);
         byte[] cookie;
         int pageIndex = -1;
         boolean isGroupFiltering = ldapSearchSpecification.isGroupFiltering();
@@ -784,14 +803,24 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
             for (String searchBase: searchBaseArray) {
                 do {
                     List<String> tempUserList = new ArrayList<>();
+                    log.info("VFUKCIAMVIRTUSSUB-82 : just before search searchBase : " + searchBase +
+                            ", searchFilter : " + searchFilter);
                     answer = ldapContext.search(escapeDNForSearch(searchBase), searchFilter, searchControls);
                     if (answer.hasMore()) {
                         tempUserList = getUserListFromSearch(isGroupFiltering, returnedAttributes, answer,
                                 isSingleAttributeFilterOperation(expressionConditions));
+                        if (tempUserList != null) {
+                            log.info("VFUKCIAMVIRTUSSUB-82 : tempUserList.size() : " + tempUserList.size());
+                        } else {
+                            log.info("VFUKCIAMVIRTUSSUB-82 : tempUserList is null");
+                        }
                         pageIndex++;
+                        log.info("VFUKCIAMVIRTUSSUB-82 : pageIndex : " + pageIndex);
                     }
                     if (CollectionUtils.isNotEmpty(tempUserList)) {
+                        log.info("VFUKCIAMVIRTUSSUB-82 : isNotEmpty(tempUserList) : " + true);
                         if (isMemberShipPropertyFound) {
+                            log.info("VFUKCIAMVIRTUSSUB-82 : isMemberShipPropertyFound() : " + true);
                             /*
                             Pagination is not supported for 'member' attribute group filtering. Also,
                             we need do post-processing if we found username filtering or claim filtering,
@@ -803,8 +832,17 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
                             break;
                         } else {
                             // Handle pagination depends on given offset, i.e. start index.
+                            log.info("VFUKCIAMVIRTUSSUB-82 : pageIndex : " + pageIndex + ", offset : " + offset +
+                                    ", pageSize : " + pageSize + ", tempUserList.size : " + tempUserList.size());
+                            if (users != null) {
+                                log.info("VFUKCIAMVIRTUSSUB-82 : users.size() before : " + users.size());
+                            }
                             generatePaginatedUserList(pageIndex, offset, pageSize, tempUserList, users);
+                            if (users != null) {
+                                log.info("VFUKCIAMVIRTUSSUB-82 : users.size() after : " + users.size());
+                            }
                             int needMore = pageSize - users.size();
+                            log.info("VFUKCIAMVIRTUSSUB-82 : needMore : " + needMore);
                             if (needMore == 0) {
                                 break;
                             }
@@ -812,6 +850,8 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
                     }
                     cookie = parseControls(ldapContext.getResponseControls());
                     String userNameAttribute = realmConfig.getUserStoreProperty(LDAPConstants.USER_NAME_ATTRIBUTE);
+                    log.info("VFUKCIAMVIRTUSSUB-82 : setRequestControls() pageSize : " + pageSize +
+                            ", cookie : " + cookie);
                     ldapContext.setRequestControls(new Control[] {
                             new PagedResultsControl(pageSize, cookie, Control.CRITICAL),
                             new SortControl(userNameAttribute, Control.NONCRITICAL)
@@ -819,6 +859,7 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
                 } while ((cookie != null) && (cookie.length != 0));
             }
         } catch (PartialResultException e) {
+            log.error("VFUKCIAMVIRTUSSUB-82 : PartialResultException", e);
             // Can be due to referrals in AD. So just ignore error.
             if (isIgnorePartialResultException()) {
                 if (log.isDebugEnabled()) {
@@ -841,8 +882,11 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
             log.error(errorMessage.getMessage(), e);
             throw new UserStoreException(errorMessage.getMessage(), errorMessage.getCode(), e);
         } finally {
+            log.info("VFUKCIAMVIRTUSSUB-82 : before closing the connection");
             JNDIUtil.closeNamingEnumeration(answer);
+            log.info("VFUKCIAMVIRTUSSUB-82 : after closing the connection");
         }
+        log.info("VFUKCIAMVIRTUSSUB-82 : users.size() : " + users.size());
         return users;
     }
 
@@ -961,6 +1005,8 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
         For group filtering can't apply pagination. We don't know how many group details will be return.
         So set to max value.
          */
+        log.info("VFUKCIAMVIRTUSSUB-82 : getLimit() isMemberShipPropertyFound : " + isMemberShipPropertyFound);
+        log.info("VFUKCIAMVIRTUSSUB-82 : getLimit() givenMax : " + givenMax);
         if (isMemberShipPropertyFound || limit > givenMax) {
             limit = givenMax;
         }
@@ -1032,19 +1078,30 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
 
     private void generatePaginatedUserList(int pageIndex, int offset, int pageSize, List<String> tempUserList,
             List<String> users) {
-
+        log.info("VFUKCIAMVIRTUSSUB-82 : generatePaginatedUserList()");
         int needMore;
         // Handle pagination depends on given offset, i.e. start index.
         if (pageIndex == (offset / pageSize)) {
+            log.info("VFUKCIAMVIRTUSSUB-82 : generatePaginatedUserList() pageIndex == (offset / pageSize) : " + true);
             int startPosition = (offset % pageSize);
+            log.info("VFUKCIAMVIRTUSSUB-82 : generatePaginatedUserList() startPosition : " + startPosition);
             if (startPosition < tempUserList.size() - 1) {
+                log.info(
+                        "VFUKCIAMVIRTUSSUB-82 : generatePaginatedUserList() startPosition < tempUserList.size() - 1 : "
+                                + true);
                 users.addAll(tempUserList.subList(startPosition, tempUserList.size()));
             } else if (startPosition == tempUserList.size() - 1) {
+                log.info(
+                        "VFUKCIAMVIRTUSSUB-82 : generatePaginatedUserList() startPosition == tempUserList.size() - 1 : "
+                                + true);
                 users.add(tempUserList.get(tempUserList.size() - 1));
             }
         } else if (pageIndex == (offset / pageSize) + 1) {
+            log.info("VFUKCIAMVIRTUSSUB-82 : generatePaginatedUserList() pageIndex == (offset / pageSize) + 1 : " + true);
             needMore = pageSize - users.size();
+            log.info("VFUKCIAMVIRTUSSUB-82 : generatePaginatedUserList() needMore : " + needMore);
             if (tempUserList.size() >= needMore) {
+                log.info("VFUKCIAMVIRTUSSUB-82 : generatePaginatedUserList() tempUserList.size() >= needMore : " + true);
                 users.addAll(tempUserList.subList(0, needMore));
             } else {
                 users.addAll(tempUserList);
