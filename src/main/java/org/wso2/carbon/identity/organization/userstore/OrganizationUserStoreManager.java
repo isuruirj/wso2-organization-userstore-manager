@@ -646,7 +646,7 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
         return searchFilter.substring(0, searchFilter.lastIndexOf(")")).concat(orgFilter).concat(")");
     }
 
-    private DirContext getOrganizationDirectoryContext(String dn) throws UserStoreException {
+    protected DirContext getOrganizationDirectoryContext(String dn) throws UserStoreException {
 
         DirContext mainDirContext = this.connectionSource.getContext();
         try {
@@ -677,7 +677,7 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
         }
     }
 
-    private boolean isAuthorized(String organizationId, String permission)
+    protected boolean isAuthorized(String organizationId, String permission)
             throws org.wso2.carbon.user.core.UserStoreException {
 
         // To create a user inside an organization
@@ -699,7 +699,7 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
         return getUserIDFromUserName(getAuthenticatedUsername(), getTenantId());
     }
 
-    private String getAuthenticatedUsername() {
+    protected String getAuthenticatedUsername() {
 
         //TODO check for authentication requests ?
         return PrivilegedCarbonContext.getThreadLocalCarbonContext().getUsername();
@@ -866,7 +866,7 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
 
     //********************* Start of duplicated private methods *********************
 
-    private String escapeSpecialCharactersForDN(String text) {
+    protected String escapeSpecialCharactersForDN(String text) {
 
         boolean replaceEscapeCharacters = true;
         String replaceEscapeCharactersAtUserLoginString = realmConfig
