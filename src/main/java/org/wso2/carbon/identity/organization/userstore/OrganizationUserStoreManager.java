@@ -175,14 +175,13 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
                 orgIdentifier = expressionConditions.get(i).getAttributeValue().trim();
                 // Organization name shouldn't be considered as a search condition.
                 expressionConditions.remove(i);
-                break;
             } else if (expressionConditions.get(i).getAttributeName().equals(orgIdAttribute)) {
                 // Received organization id as the identifier
                 orgIdentifier = expressionConditions.get(i).getAttributeValue().trim();
                 // Organization id shouldn't be considered as a search condition.
                 expressionConditions.remove(i);
-                break;
             }
+            break;
         }
         // If organization is defined in the request, find the organization DN
         if (orgIdentifier != null) {
@@ -508,7 +507,7 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
         DirContext dirContext = this.connectionSource.getContext();
         String username = getUserNameFromUserID(userID);
         String currentDn = getNameInSpaceForUsernameFromLDAP(username);
-        String prefix = StringUtils.contains(currentDn, ',') ? currentDn.substring(0, currentDn.indexOf(",")) : null;
+        String prefix = StringUtils.contains(currentDn, ',') ? currentDn.substring(0, currentDn.indexOf(',')) : null;
         newDn = prefix != null ? prefix.concat(",").concat(newDn) : null;
         try {
             if (newDn != null || currentDn != null) {
@@ -780,6 +779,7 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
                         pageIndex++;
                     }
                     if (CollectionUtils.isNotEmpty(tempUserList)) {
+                        int needMore = -1;
                         if (isMemberShipPropertyFound) {
                             /*
                             Pagination is not supported for 'member' attribute group filtering. Also,
@@ -789,14 +789,13 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
                              */
                             users = membershipGroupFilterPostProcessing(isUsernameFiltering, isClaimFiltering,
                                     expressionConditions, tempUserList);
-                            break;
                         } else {
                             // Handle pagination depends on given offset, i.e. start index.
                             generatePaginatedUserList(pageIndex, offset, pageSize, tempUserList, users);
-                            int needMore = pageSize - users.size();
-                            if (needMore == 0) {
-                                break;
-                            }
+                            needMore = pageSize - users.size();
+                        }
+                        if (isMemberShipPropertyFound || needMore == 0) {
+                            break;
                         }
                     }
                     cookie = parseControls(ldapContext.getResponseControls());
