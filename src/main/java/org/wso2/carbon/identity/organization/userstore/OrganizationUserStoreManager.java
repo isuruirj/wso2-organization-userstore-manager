@@ -23,6 +23,7 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.context.PrivilegedCarbonContext;
+import org.wso2.carbon.identity.organization.mgt.core.model.AuthorizedParentOrganization;
 import org.wso2.carbon.identity.organization.userstore.internal.OrganizationUserStoreDataHolder;
 import org.wso2.carbon.identity.core.util.IdentityUtil;
 import org.wso2.carbon.identity.organization.mgt.core.OrganizationManager;
@@ -32,6 +33,7 @@ import org.wso2.carbon.identity.organization.mgt.core.exception.OrganizationMana
 import org.wso2.carbon.identity.organization.mgt.core.model.Organization;
 import org.wso2.carbon.identity.organization.mgt.core.model.UserStoreConfig;
 import org.wso2.carbon.identity.organization.mgt.core.usermgt.AbstractOrganizationMgtUserStoreManager;
+import org.wso2.carbon.identity.organization.userstore.model.PageUserList;
 import org.wso2.carbon.identity.organization.userstore.util.Utils;
 import org.wso2.carbon.user.api.AuthorizationManager;
 import org.wso2.carbon.user.api.RealmConfiguration;
@@ -92,7 +94,12 @@ import static org.wso2.carbon.identity.organization.mgt.core.constant.Organizati
 import static org.wso2.carbon.identity.organization.mgt.core.constant.OrganizationMgtConstants.UI_EXECUTE;
 import static org.wso2.carbon.identity.organization.mgt.core.constant.OrganizationMgtConstants.USER_MGT_CREATE_PERMISSION;
 import static org.wso2.carbon.identity.organization.mgt.core.constant.OrganizationMgtConstants.USER_MGT_LIST_PERMISSION;
+import static org.wso2.carbon.identity.organization.mgt.core.constant.OrganizationMgtConstants.ROOT_ORGANIZATION_SEARCH_BASE;
 import static org.wso2.carbon.identity.organization.userstore.constants.OrganizationUserStoreManagerConstants.ErrorMessage.ERROR_PERSISTING_USER;
+import static org.wso2.carbon.identity.organization.userstore.constants.OrganizationUserStoreManagerConstants.ALL;
+import static org.wso2.carbon.identity.organization.userstore.util.Utils.buildSearchBase;
+import static org.wso2.carbon.identity.organization.userstore.util.Utils.childOrgRetrievalScenario;
+import static org.wso2.carbon.identity.organization.userstore.util.Utils.isAuthorizedParentOrganization;
 import static org.wso2.carbon.user.core.UserCoreConstants.RealmConfig.PROPERTY_DOMAIN_NAME;
 import static org.wso2.carbon.user.core.UserStoreConfigConstants.maxUserNameListLength;
 
@@ -645,6 +652,30 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
         return searchFilter.substring(0, searchFilter.lastIndexOf(")")).concat(orgFilter).concat(")");
     }
 
+    protected List<AuthorizedParentOrganization> getAuthorizedParentOrganizations(String searchFilter, String orgIdentifierAttribute,
+                                                                                  boolean filterByOrgName) throws UserStoreException {
+
+        OrganizationAuthorizationDao authorizationDao =
+                OrganizationUserStoreDataHolder.getInstance().getOrganizationAuthDao();
+        List<AuthorizedParentOrganization> authorizedParentOrganizations;
+        try {
+            authorizedParentOrganizations = authorizationDao
+                    .findAuthorizedParentOrganizationsList(getAuthenticatedUserId(), getTenantId(),
+                            USER_MGT_LIST_PERMISSION, filterByOrgName);
+        } catch (OrganizationManagementException e) {
+            ErrorMessage errorMessage = ErrorMessage.ERROR_GETTING_AUTHORIZED_ORG;
+            String errorMsg = String.format(errorMessage.getMessage(), USER_MGT_LIST_PERMISSION);
+            log.error(errorMsg, e);
+            throw new UserStoreException(errorMsg, errorMessage.getCode(), e);
+        } catch (org.wso2.carbon.user.api.UserStoreException e) {
+            ErrorMessage errorMessage = ErrorMessage.ERROR_GETTING_AUTHENTICATED_USER;
+            String errorMsg = String.format(errorMessage.getMessage(), getAuthenticatedUsername());
+            log.error(errorMsg, e);
+            throw new UserStoreException(errorMsg, errorMessage.getCode(), e);
+        }
+        return authorizedParentOrganizations;
+    }
+
     protected DirContext getOrganizationDirectoryContext(String dn) throws UserStoreException {
 
         DirContext mainDirContext = this.connectionSource.getContext();
@@ -735,10 +766,12 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
         boolean isUsernameFiltering = ldapSearchSpecification.isUsernameFiltering();
         boolean isClaimFiltering = ldapSearchSpecification.isClaimFiltering();
         boolean isMemberShipPropertyFound = ldapSearchSpecification.isMemberShipPropertyFound();
+        boolean retrieveAllChildOrgs = ALL.equals(childOrgRetrievalScenario());
 
         String searchFilter = ldapSearchSpecification.getSearchFilterQuery();
         SearchControls searchControls = ldapSearchSpecification.getSearchControls();
         String[] searchBaseArray;
+        List<AuthorizedParentOrganization> authorizedParentOrganizations = null;
         // If organization is defined in the request
         if (orgSearchBase != null) {
             // Search only in the given OU, not in sub trees
@@ -746,15 +779,63 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
             // Search in the organization's user search base (DN)
             searchBaseArray = new String[] { orgSearchBase };
         } else {
-            // admin users can do full tree search
-            // Non-admin users can only search in allowed organizations
-            // Threads without an authenticated user, are also eligible for a full tree search
-            if (StringUtils.isNotBlank(getAuthenticatedUsername()) && !isAuthorizedAsAdmin()) {
-                // Alter the search filter to include authorized org IDs as search conditions
-                searchFilter = getAuthorizedSearchFilter(searchFilter, orgIdentifierAttribute, filterByOrgName);
+            if (retrieveAllChildOrgs){
+                if (log.isDebugEnabled()) {
+                    log.debug("Build the search filter by retrieving all the child organizations.");
+                }
+                // admin users can do full tree search
+                // Non-admin users can only search in allowed organizations
+                // Threads without an authenticated user, are also eligible for a full tree search
+                if (StringUtils.isNotBlank(getAuthenticatedUsername()) && !isAuthorizedAsAdmin()) {
+                    // Alter the search filter to include authorized org IDs as search conditions
+                    searchFilter = getAuthorizedSearchFilter(searchFilter, orgIdentifierAttribute, filterByOrgName);
+                }
+                // Use the default search base (Search will NOT be limited to one level)
+                searchBaseArray = ldapSearchSpecification.getSearchBases().split("#");
+            } else {
+                // admin users can do full tree search
+                // Non-admin users can only search in allowed organizations
+                // Threads without an authenticated user, are also eligible for a full tree search
+                if (StringUtils.isNotBlank(getAuthenticatedUsername()) && !isAuthorizedAsAdmin()) {
+                    String[] initialSearchBaseArray = ldapSearchSpecification.getSearchBases().split("#");
+                    if (log.isDebugEnabled()) {
+                        log.debug("Initial Search Base Array in ldap search specification: " + Arrays.toString(initialSearchBaseArray));
+                    }
+                    authorizedParentOrganizations = getAuthorizedParentOrganizations(searchFilter, orgIdentifierAttribute, filterByOrgName);
+                    if (authorizedParentOrganizations != null && !authorizedParentOrganizations.isEmpty()) {
+                        searchBaseArray = new String[initialSearchBaseArray.length * authorizedParentOrganizations.size()];
+                        int count = 0;
+                        for(String searchBase: initialSearchBaseArray){
+                            for(AuthorizedParentOrganization org: authorizedParentOrganizations){
+                                if (log.isDebugEnabled()) {
+                                    log.debug("Search Base: " + searchBase + ". Organization: " + org.getDisplayName());
+                                }
+                                if (!ROOT.equals(org.getDisplayName())) {
+                                    if(!StringUtils.isBlank(IdentityUtil.getProperty(ROOT_ORGANIZATION_SEARCH_BASE))){
+                                        searchBase = IdentityUtil.getProperty(ROOT_ORGANIZATION_SEARCH_BASE).trim();
+                                    }
+                                    searchBaseArray[count] = buildSearchBase(org.getPath()) + searchBase;
+                                    if (log.isDebugEnabled()) {
+                                        log.debug("Updating Search Base Array: " + Arrays.toString(searchBaseArray));
+                                    }
+                                } else {
+                                    if (log.isDebugEnabled()) {
+                                        log.debug("Skipe altering search base for the ROOT organization.");
+                                    }
+                                    searchBaseArray[count] = searchBase;
+                                }
+                                count++;
+                            }
+                        }
+                    } else {
+                        // Use the default search base (Search will NOT be limited to one level)
+                        searchBaseArray = ldapSearchSpecification.getSearchBases().split("#");
+                    }
+                } else {
+                    // Use the default search base (Search will NOT be limited to one level)
+                    searchBaseArray = ldapSearchSpecification.getSearchBases().split("#");
+                }
             }
-            // Use the default search base (Search will NOT be limited to one level)
-            searchBaseArray = ldapSearchSpecification.getSearchBases().split("#");
         }
 
         if (log.isDebugEnabled()) {
@@ -769,9 +850,22 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
                     pageSize));
         }
         try {
+            PageUserList pageUserList = new PageUserList(offset, pageSize);
             for (String searchBase: searchBaseArray) {
                 do {
                     List<User> tempUserList = new ArrayList<>();
+                    if (!retrieveAllChildOrgs) {
+                        String ou = searchBase.substring(0, searchBase.indexOf(','));
+                        if (ou.startsWith("ou=")) {
+                            AuthorizedParentOrganization org = isAuthorizedParentOrganization(authorizedParentOrganizations, ou.substring(3));
+                            if (org != null && org.getInherit() == 0) {
+                                if (log.isDebugEnabled()) {
+                                    log.debug("Setting search scope to one level for " + org.getDisplayName() + " organization as include sub org is false.");
+                                }
+                                searchControls.setSearchScope(SearchControls.ONELEVEL_SCOPE);
+                            }
+                        }
+                    }
                     answer = ldapContext.search(escapeDNForSearch(searchBase), searchFilter, searchControls);
                     if (answer.hasMore()) {
                         tempUserList = getUserListFromSearch(isGroupFiltering, returnedAttributes, answer,
@@ -791,7 +885,13 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
                                     expressionConditions, tempUserList);
                         } else {
                             // Handle pagination depends on given offset, i.e. start index.
-                            generatePaginatedUserList(pageIndex, offset, pageSize, tempUserList, users);
+                            if (retrieveAllChildOrgs){
+                                super.generatePaginatedUserList(pageIndex, offset, pageSize, tempUserList, users);
+                            } else {
+                                pageUserList.setPageIndex(pageIndex);
+                                pageUserList.setTempUserList(tempUserList);
+                                generatePaginatedUserList(pageUserList, users);
+                            }
                             needMore = pageSize - users.size();
                         }
                         if (isMemberShipPropertyFound || needMore == 0) {
@@ -832,6 +932,40 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
             JNDIUtil.closeNamingEnumeration(answer);
         }
         return users;
+    }
+
+    protected void generatePaginatedUserList(PageUserList pageUserList, List<User> users) {
+
+        int needMore;
+        int offset = pageUserList.getOffset();
+        int pageSize = pageUserList.getPageSize();
+        int pageIndex = pageUserList.getPageIndex();
+        List<User> tempUserList = pageUserList.getTempUserList();
+        // Handle pagination depends on given offset, i.e. start index.
+        if (pageIndex == (offset / pageSize)) {
+            int startPosition;
+            if (pageUserList.isIncomplete()){
+                startPosition = (offset % pageSize) + (pageSize - pageUserList.getPreviousUserListSize());
+            } else {
+                startPosition = (offset % pageSize);
+            }
+            if (startPosition < tempUserList.size() - 1) {
+                users.addAll(tempUserList.subList(startPosition, tempUserList.size()));
+            } else if (startPosition == tempUserList.size() - 1) {
+                users.add(tempUserList.get(tempUserList.size() - 1));
+            }
+        } else if (pageIndex == (offset / pageSize) + 1) {
+            needMore = pageSize - users.size();
+            if (tempUserList.size() >= needMore) {
+                users.addAll(tempUserList.subList(0, needMore));
+            } else {
+                users.addAll(tempUserList);
+            }
+        } else if (users.size() == 0 && tempUserList.size() > 0 && tempUserList.size() < pageSize){
+            //previous user list is not full
+            pageUserList.setIncomplete(true);
+            pageUserList.setPreviousUserListSize(tempUserList.size());
+        }
     }
 
     private String getUserIDFromProperty(String property, String claimValue) throws UserStoreException {

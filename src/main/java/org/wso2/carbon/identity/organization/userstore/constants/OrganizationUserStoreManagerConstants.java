@@ -70,4 +70,8 @@ public class OrganizationUserStoreManagerConstants {
             return message;
         }
     }
+
+    public static final String CHILD_ORG_RETRIEVAL = "childOrgRetrieval";
+    public static final String ALL = "all";
+
 }

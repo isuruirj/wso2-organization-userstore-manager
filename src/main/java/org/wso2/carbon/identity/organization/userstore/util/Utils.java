@@ -19,7 +19,12 @@
 package org.wso2.carbon.identity.organization.userstore.util;
 
 import org.apache.commons.lang.StringUtils;
+import org.wso2.carbon.identity.organization.mgt.core.model.AuthorizedParentOrganization;
 import org.wso2.carbon.identity.organization.userstore.constants.OrganizationUserStoreManagerConstants;
+
+import java.util.List;
+
+import static org.wso2.carbon.identity.organization.userstore.constants.OrganizationUserStoreManagerConstants.CHILD_ORG_RETRIEVAL;
 
 public class Utils {
 
@@ -29,5 +34,29 @@ public class Utils {
             text = StringUtils.replace(text, character, "\\".concat(character));
         }
         return text;
+    }
+
+    public static String childOrgRetrievalScenario() {
+        return System.getProperty(CHILD_ORG_RETRIEVAL);
+    }
+
+    public static String buildSearchBase(String path) {
+        String[] ous = path.split("\\s*,\\s*");
+        String searchBase = "";
+        for (int i = ous.length-1; i>0; i--) {
+            //searchBase = searchBase + ous[i] + ",ou=";
+            searchBase = searchBase + "ou=" + ous[i] + ",";
+        }
+        return searchBase;
+    }
+
+    public static AuthorizedParentOrganization isAuthorizedParentOrganization(List<AuthorizedParentOrganization> authorizedParentOrganizations, String ou) {
+        if (authorizedParentOrganizations != null && !authorizedParentOrganizations.isEmpty()) {
+            for(AuthorizedParentOrganization org : authorizedParentOrganizations) {
+                if (org.getDisplayName().equals(ou))
+                    return org;
+            }
+        }
+        return null;
     }
 }
