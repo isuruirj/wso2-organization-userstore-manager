@@ -55,13 +55,7 @@ import org.wso2.carbon.user.core.util.JNDIUtil;
 import org.wso2.carbon.user.core.util.UserCoreUtil;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.StringJoiner;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import javax.naming.Name;
@@ -772,6 +766,7 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
         SearchControls searchControls = ldapSearchSpecification.getSearchControls();
         String[] searchBaseArray;
         List<AuthorizedParentOrganization> authorizedParentOrganizations = null;
+        Map<String, Integer> searchBaseWithScope = new HashMap<>();
         // If organization is defined in the request
         if (orgSearchBase != null) {
             // Search only in the given OU, not in sub trees
@@ -808,22 +803,10 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
                         for(String searchBase: initialSearchBaseArray){
                             for(AuthorizedParentOrganization org: authorizedParentOrganizations){
                                 if (log.isDebugEnabled()) {
-                                    log.debug("Search Base: " + searchBase + ". Organization: " + org.getDisplayName());
+                                    log.debug("Search Base: " + searchBase + " . Organization: " + org.getDisplayName() + ", Path: " + org.getPath());
                                 }
-                                if (!ROOT.equals(org.getDisplayName())) {
-                                    if(!StringUtils.isBlank(IdentityUtil.getProperty(ROOT_ORGANIZATION_SEARCH_BASE))){
-                                        searchBase = IdentityUtil.getProperty(ROOT_ORGANIZATION_SEARCH_BASE).trim();
-                                    }
-                                    searchBaseArray[count] = buildSearchBase(org.getPath()) + searchBase;
-                                    if (log.isDebugEnabled()) {
-                                        log.debug("Updating Search Base Array: " + Arrays.toString(searchBaseArray));
-                                    }
-                                } else {
-                                    if (log.isDebugEnabled()) {
-                                        log.debug("Skipe altering search base for the ROOT organization.");
-                                    }
-                                    searchBaseArray[count] = searchBase;
-                                }
+                                searchBaseArray[count] = org.getPath();
+                                searchBaseWithScope.put(org.getPath(), org.getInherit());
                                 count++;
                             }
                         }
@@ -855,14 +838,15 @@ public class OrganizationUserStoreManager extends AbstractOrganizationMgtUserSto
                 do {
                     List<User> tempUserList = new ArrayList<>();
                     if (!retrieveAllChildOrgs) {
-                        String ou = searchBase.substring(0, searchBase.indexOf(','));
-                        if (ou.startsWith("ou=")) {
-                            AuthorizedParentOrganization org = isAuthorizedParentOrganization(authorizedParentOrganizations, ou.substring(3));
-                            if (org != null && org.getInherit() == 0) {
-                                if (log.isDebugEnabled()) {
-                                    log.debug("Setting search scope to one level for " + org.getDisplayName() + " organization as include sub org is false.");
-                                }
-                                searchControls.setSearchScope(SearchControls.ONELEVEL_SCOPE);
+                        if (!searchBaseWithScope.isEmpty() && searchBaseWithScope.containsKey(searchBase) && searchBaseWithScope.get(searchBase) == 0) {
+                            if (log.isDebugEnabled()) {
+                                log.debug("Setting search scope to one level for " + searchBase + "  as include sub org is false.");
+                            }
+                            searchControls.setSearchScope(SearchControls.ONELEVEL_SCOPE);
+                        } else {
+                            searchControls.setSearchScope(SearchControls.SUBTREE_SCOPE);
+                            if (log.isDebugEnabled()) {
+                                log.debug("Setting search scope to sub tree " + searchBase + "  as include sub org is true.");
                             }
                         }
                     }
