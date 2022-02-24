@@ -48,7 +48,7 @@
         <org.apache.felix.scr.ds-annotations.version>1.2.10</org.apache.felix.scr.ds-annotations.version>
         <identity.inbound.provisioning.scim2.version>1.5.1</identity.inbound.provisioning.scim2.version>
         <kernel.version>4.6.0</kernel.version>
-        <organization.mgt.version>0.25</organization.mgt.version>
+        <organization.mgt.version>0.26</organization.mgt.version>
     </properties>
 
     <dependencies>
